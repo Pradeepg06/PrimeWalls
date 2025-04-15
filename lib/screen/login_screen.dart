@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simpleapp/components/profile_screen.dart';
+import 'package:simpleapp/scripts/auth_provider.dart';
 import 'package:simpleapp/utils/theme_manager.dart';
 import 'signup_screen.dart';
 
@@ -18,35 +19,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
   Future<void> _login() async {
-    final email = emailController.text;
-    final password = passwordController.text;
+    await signInWithEmailPassword(
+        emailController.text, passwordController.text, context);
 
-    if (email == "admin@gmail.com" && password == "admin@123") {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-
-      if (!prefs.containsKey('profilePhoto')) {
-        await prefs.setString('profilePhoto', '');
-      }
-
-      // ✅ Navigate to ProfileScreen after successful login
-      Navigator.pushAndRemoveUntil(
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('isLoggedIn') ?? false) {
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const ProfileScreen()),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid Credentials")),
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
       );
     }
-  }
-
-  // 🔹 Google Login Function (Placeholder)
-  Future<void> _googleLogin() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Google Login Clicked")),
-    );
   }
 
   @override
@@ -59,24 +41,20 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           IconButton(
             icon: Icon(
-                themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode),
-            onPressed: () {
-              themeProvider.toggleTheme();
-            },
+              themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+            ),
+            onPressed: () => themeProvider.toggleTheme(),
           ),
         ],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context); // ✅ Redirects back to Profile
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Card(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           elevation: 5,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -87,8 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text("Welcome Back!",
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold)),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 20),
 
                     // Email Field
@@ -128,48 +105,59 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // Login Button
                     SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: themeProvider.isDarkMode
-                                ? Colors.grey[700]
-                                : Colors.blueAccent,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text(
-                            "Login",
-                            style: TextStyle(fontSize: 18, color: Colors.white),
-                          ),
-                        )),
-
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themeProvider.isDarkMode
+                              ? Colors.grey[700]
+                              : Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text(
+                          "Login",
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 15),
 
-                    // ✅ Hyperlink to Signup Page
+                    // Signup Hyperlink
                     GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                              builder: (context) => const SignupScreen()),
+                          MaterialPageRoute(builder: (_) => const SignupScreen()),
                         );
                       },
                       child: const Text(
                         "Don't have an account? Sign up",
                         style: TextStyle(
-                            color: Colors.blueAccent,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500),
+                          color: Colors.blueAccent,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
 
-                    // ✅ Google Login Button
+                    // Google Login
                     GestureDetector(
-                      onTap: _googleLogin,
+                      onTap: () async {
+                        final user = await signInWithGoogle(context);
+                        if (user != null) {
+                          SharedPreferences prefs =
+                              await SharedPreferences.getInstance();
+                          await prefs.setBool('isLoggedIn', true);
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ProfileScreen()),
+                          );
+                        }
+                      },
                       child: Container(
                         width: 250,
                         height: 50,
@@ -182,8 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Image.asset(
                                 'assets/google.png',
                                 width: 30,
@@ -193,13 +180,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const Text(
                               "Sign in with Google",
-                              style:
-                                  TextStyle(fontSize: 16, color: Colors.black),
+                              style: TextStyle(fontSize: 16, color: Colors.black),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
